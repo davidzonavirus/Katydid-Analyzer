@@ -152,12 +152,12 @@ class KatydidAnalysisApp(QMainWindow):
         
         # Create close button that stays on top
         self.close_button = QPushButton("×", self)
-        self.close_button.setFixedSize(40, 40)
+        self.close_button.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
         self.close_button.setStyleSheet("""
             QPushButton {
                 color: red;
                 background-color: transparent;
-                font-size: 32px;
+                font-size: 1.5em;
                 border: none;
                 font-weight: bold;
             }
@@ -211,18 +211,9 @@ class KatydidAnalysisApp(QMainWindow):
         # Set up the initial start screen
         self.setup_start_screen()
 
-        # Initialize undo/redo system
-        self.command_history = []
-        self.command_index = -1
-        self.max_history = 50  # Maximum number of commands to store
-        
         # Set focus policy to accept keyboard focus
         from PyQt5.QtCore import Qt
         self.setFocusPolicy(Qt.StrongFocus)
-        
-        # Add a status message for undo/redo confirmation
-        self.status_message = None
-        self.status_timer = None
 
         # Region selection variables
         self.region_selection_active = False
@@ -236,6 +227,8 @@ class KatydidAnalysisApp(QMainWindow):
         # Initialize file queue for multiple file processing
         self.file_queue = []
         self.current_file_index = -1
+
+
 
     def setup_start_screen(self):
         if self.centralWidget():
@@ -476,14 +469,6 @@ class KatydidAnalysisApp(QMainWindow):
                 <td>Save results with WAV file</td>
             </tr>
             <tr>
-                <td>K</td>
-                <td>Undo</td>
-            </tr>
-            <tr>
-                <td>L</td>
-                <td>Redo</td>
-            </tr>
-            <tr>
                 <td>F11</td>
                 <td>Toggle fullscreen</td>
             </tr>
@@ -573,14 +558,6 @@ class KatydidAnalysisApp(QMainWindow):
             self.zoom_view(0.5)  # Zoom in by factor of 2
         elif key == Qt.Key_S:  # Zoom out
             self.zoom_view(2.0)  # Zoom out by factor of 2
-        
-        # Undo/Redo controls
-        elif key == Qt.Key_K:  # Undo
-            self.undo()
-            return
-        elif key == Qt.Key_L:  # Redo
-            self.redo()
-            return
         
         # Selection controls
         elif key == Qt.Key_O:  # Add pulse at selection
@@ -957,36 +934,30 @@ class KatydidAnalysisApp(QMainWindow):
         
         # Create navigation buttons
         left_btn = QPushButton("← Left (A)")
+        left_btn.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
         left_btn.setStyleSheet(button_style)
         left_btn.clicked.connect(lambda: self.move_view(-1))
         
         right_btn = QPushButton("Right (D) →")
+        right_btn.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
         right_btn.setStyleSheet(button_style)
         right_btn.clicked.connect(lambda: self.move_view(1))
         
         zoom_in_btn = QPushButton("Zoom In (W)")
+        zoom_in_btn.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
         zoom_in_btn.setStyleSheet(button_style)
         zoom_in_btn.clicked.connect(lambda: self.zoom_view(0.5))
         
         zoom_out_btn = QPushButton("Zoom Out (S)")
+        zoom_out_btn.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
         zoom_out_btn.setStyleSheet(button_style)
         zoom_out_btn.clicked.connect(lambda: self.zoom_view(2.0))
-        
-        undo_btn = QPushButton("Undo (K)")
-        undo_btn.setStyleSheet(button_style)
-        undo_btn.clicked.connect(self.undo)
-        
-        redo_btn = QPushButton("Redo (L)")
-        redo_btn.setStyleSheet(button_style)
-        redo_btn.clicked.connect(self.redo)
         
         # Add buttons to grid
         nav_buttons.addWidget(left_btn, 0, 0)
         nav_buttons.addWidget(right_btn, 0, 1)
         nav_buttons.addWidget(zoom_in_btn, 1, 0)
         nav_buttons.addWidget(zoom_out_btn, 1, 1)
-        nav_buttons.addWidget(undo_btn, 2, 0)
-        nav_buttons.addWidget(redo_btn, 2, 1)
         
         left_layout.addLayout(nav_buttons)
         
@@ -1010,27 +981,33 @@ class KatydidAnalysisApp(QMainWindow):
         
         # Create processing buttons
         detect_btn = QPushButton("Detect Pulses (Y)")
+        detect_btn.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
         detect_btn.setStyleSheet(button_style)
         detect_btn.clicked.connect(self.detect_pulses)
         
         analyze_periods_btn = QPushButton("Analyze Periods (T)")
+        analyze_periods_btn.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
         analyze_periods_btn.setStyleSheet(button_style)
         analyze_periods_btn.clicked.connect(self.analyze_pulse_periods)
         
         invert_btn = QPushButton("Invert Values (R)")
+        invert_btn.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
         invert_btn.setStyleSheet(button_style)
         invert_btn.clicked.connect(self.invert_values)
         
         smooth_btn = QPushButton("Smooth Signal (G)")
+        smooth_btn.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
         smooth_btn.setStyleSheet(button_style)
         smooth_btn.clicked.connect(self.apply_smoothing)
         
         # Create reset and help buttons
         reset_btn = QPushButton("Reset (Clear All)")
+        reset_btn.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
         reset_btn.setStyleSheet(button_style)
         reset_btn.clicked.connect(self.reset_application)
         
         help_btn = QPushButton("Show Controls")
+        help_btn.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
         help_btn.setStyleSheet(button_style)
         help_btn.clicked.connect(self.show_help)
         
@@ -1060,35 +1037,35 @@ class KatydidAnalysisApp(QMainWindow):
         
         # Add threshold controls information
         threshold_label = QLabel("Threshold Controls")
-        threshold_label.setFont(QFont("Segoe UI", 14, QFont.Bold))
         threshold_label.setStyleSheet("""
             QLabel {
                 color: #212529;
                 border-bottom: 2px solid #6c757d;
                 padding-bottom: 10px;
                 margin-bottom: 15px;
+                font-size: 1.2em;
+                font-weight: bold;
             }
         """)
         right_layout.addWidget(threshold_label)
         
         # Add threshold controls info
         threshold_info = QLabel("↑/↓: Adjust threshold\n[/]: Switch absolute/relative mode")
-        threshold_info.setFont(QFont("Segoe UI", 12))
         threshold_info.setAlignment(Qt.AlignCenter)
         threshold_info.setStyleSheet("""
             QLabel {
                 color: #495057;
                 background-color: #e9ecef;
-                padding: 12px;
+                padding: 1em;
                 border-radius: 6px;
                 margin-bottom: 15px;
+                font-size: 1em;
             }
         """)
         right_layout.addWidget(threshold_info)
         
         # Selection Controls Section
         selection_label = QLabel("Selection Controls")
-        selection_label.setFont(QFont("Segoe UI", 14, QFont.Bold))
         selection_label.setStyleSheet("""
             QLabel {
                 color: #212529;
@@ -1096,6 +1073,8 @@ class KatydidAnalysisApp(QMainWindow):
                 padding-bottom: 10px;
                 margin-bottom: 15px;
                 margin-top: 20px;
+                font-size: 1.2em;
+                font-weight: bold;
             }
         """)
         right_layout.addWidget(selection_label)
@@ -1106,10 +1085,12 @@ class KatydidAnalysisApp(QMainWindow):
         
         # Create selection buttons
         add_pulse_btn = QPushButton("Add Pulse (O)")
+        add_pulse_btn.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
         add_pulse_btn.setStyleSheet(button_style)
         add_pulse_btn.clicked.connect(self.add_manual_pulse)
         
         delete_pulse_btn = QPushButton("Delete Pulse (P)")
+        delete_pulse_btn.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
         delete_pulse_btn.setStyleSheet(button_style)
         delete_pulse_btn.clicked.connect(self.delete_selected_pulses)
         
@@ -1121,15 +1102,16 @@ class KatydidAnalysisApp(QMainWindow):
         
         # Add save button with distinct style
         save_button = QPushButton("Save Results")
+        save_button.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
         save_button.clicked.connect(self.save_results)
         save_button.setStyleSheet("""
             QPushButton {
                 background-color: #4CAF50;
                 color: white;
                 border-radius: 8px;
-                padding: 12px 20px;
+                padding: 1em 1.5em;
                 font-weight: bold;
-                font-size: 13px;
+                font-size: 1em;
                 margin-top: 20px;
                 border: none;
                 min-width: 120px;
@@ -1722,11 +1704,7 @@ class KatydidAnalysisApp(QMainWindow):
             if self.selection_start is None or self.selection_end is None:
                 return
             
-            # Save the old selection state for undo
-            old_start = self.selection_start
-            old_end = self.selection_end
-            old_ystart = self.selection_ystart
-            old_yend = self.selection_yend
+
             
             # Update final coordinates if mouse is within axes
             if event.inaxes == self.ax and event.xdata is not None:
@@ -1734,22 +1712,7 @@ class KatydidAnalysisApp(QMainWindow):
                 if event.ydata is not None:
                     self.selection_yend = event.ydata
             
-            # Add to command history for undo/redo if this is a new selection
-            if old_start != self.selection_start or old_end != self.selection_end or old_ystart != self.selection_ystart or old_yend != self.selection_yend:
-                self.add_command(
-                    'selection',
-                    {
-                        'start': old_start,
-                        'end': old_end,
-                        'ystart': old_ystart,
-                        'yend': old_yend,
-                        'new_start': self.selection_start,
-                        'new_end': self.selection_end,
-                        'new_ystart': self.selection_ystart,
-                        'new_yend': self.selection_yend
-                    },
-                    "Selection change"
-                )
+
             
             # Make sure we update the time indicator
             self.update_selection_time()
@@ -1809,9 +1772,6 @@ class KatydidAnalysisApp(QMainWindow):
         else:
             data = self.wav_data[start_sample:end_sample]
         
-        # Save current pulses for undo
-        old_pulses = self.pulses.copy()
-        
         # Find multiple peaks in the selection that are within amplitude bounds
         if len(data) > 0:
             # Filter data by amplitude bounds
@@ -1865,13 +1825,7 @@ class KatydidAnalysisApp(QMainWindow):
                 # Sort pulses
                 self.pulses.sort(key=lambda x: x['position'])
                 
-                # Add to command history for undo/redo
-                if added_count > 0:
-                    self.add_command(
-                        'add_pulse',
-                        {'before': old_pulses, 'after': self.pulses.copy()},
-                        f"Added {added_count} pulse(s)"
-                    )
+
                 
                 # Clear selection
                 self.selection_start = None
@@ -1910,8 +1864,7 @@ class KatydidAnalysisApp(QMainWindow):
             min_amp = float('-inf')
             max_amp = float('inf')
             
-        # Save current pulses for undo
-        old_pulses = self.pulses.copy()
+
             
         # Find pulses within the selection time range
         pulses_in_range = []
@@ -1934,12 +1887,6 @@ class KatydidAnalysisApp(QMainWindow):
         
         if pulses_removed > 0:
             self.pulses = pulses_to_keep
-            # Add to command history for undo/redo
-            self.add_command(
-                'delete_pulse',
-                {'before': old_pulses, 'after': self.pulses.copy()},
-                f"Deleted {pulses_removed} pulse(s)"
-            )
             QMessageBox.information(self, "Pulses Deleted", f"Removed {pulses_removed} pulse(s) from selection.")
         else:
             QMessageBox.information(self, "No Pulses Found", "No pulses were found in the selected area.")
@@ -2037,12 +1984,7 @@ class KatydidAnalysisApp(QMainWindow):
         self.pulses = []
         self.skips = []
         
-        # Add to command history
-        self.command_history.append({
-            'type': 'invert_values',
-            'inversion_count': self.inversion_count
-        })
-        self.command_index = len(self.command_history)
+
         
         # Update the plot
         self.update_plot()
@@ -2163,12 +2105,7 @@ class KatydidAnalysisApp(QMainWindow):
         elif key == Qt.Key_G:
             # Smooth signal
             self.apply_smoothing()
-        elif key == Qt.Key_K:
-            # Undo
-            self.undo()
-        elif key == Qt.Key_L:
-            # Redo
-            self.redo()
+
         elif key == Qt.Key_O:
             # Add pulse
             self.add_manual_pulse()
@@ -2374,13 +2311,7 @@ class KatydidAnalysisApp(QMainWindow):
                 'peak_type': 'negative' if looking_for_negative_peaks else 'positive'
             })
         
-        # Add to command history
-        self.command_history.append({
-            'type': 'detect_pulses',
-            'pulses': new_pulses,
-            'previous_pulses': self.pulses.copy()
-        })
-        self.command_index = len(self.command_history)
+
         
         # Update pulses
         self.pulses.extend(new_pulses)
@@ -2953,11 +2884,6 @@ class KatydidAnalysisApp(QMainWindow):
             <li><b>Reset:</b> Reset to original waveform and clear all pulses</li>
         </ul>
         
-        <h3>Undo/Redo:</h3>
-        <ul>
-            <li><b>K:</b> Undo last action</li>
-            <li><b>L:</b> Redo action</li>
-        </ul>
         </html>
         """
         
@@ -3214,17 +3140,21 @@ class KatydidAnalysisApp(QMainWindow):
                     # Get the pulses for this period
                     period_idx = period['index'] - 1  # Convert to 0-based index
                     
-                    # Get amplitudes from the original pulses
+                    # Get pulse times and amplitudes from sorted pulses
                     if period_idx + 2 < len(sorted_pulses):
-                        pulse1_amp = sorted_pulses[period_idx]['amplitude'] if 'amplitude' in sorted_pulses[period_idx] else 0
-                        pulse2_amp = sorted_pulses[period_idx + 1]['amplitude'] if 'amplitude' in sorted_pulses[period_idx + 1] else 0
-                        pulse3_amp = sorted_pulses[period_idx + 2]['amplitude'] if 'amplitude' in sorted_pulses[period_idx + 2] else 0
+                        pulse1 = sorted_pulses[period_idx]
+                        pulse2 = sorted_pulses[period_idx + 1]
+                        pulse3 = sorted_pulses[period_idx + 2]
                     else:
-                        pulse1_amp = pulse2_amp = pulse3_amp = 0
+                        pulse1 = pulse2 = pulse3 = {'time': 0, 'amplitude': 0}
                     
-                    writer.writerow([period['index'], period['duration'], period['ratio'], 
-                                    period['pulse1']['time'], period['pulse1']['amplitude'], 
-                                    period['pulse2']['time'], period['pulse2']['amplitude']])
+                    writer.writerow([period['index'], 
+                                    period['duration'] if 'duration' in period else 0,
+                                    period['ratio'] if 'ratio' in period else 0,
+                                    pulse1['time'] if 'time' in pulse1 else 0,
+                                    pulse1['amplitude'] if 'amplitude' in pulse1 else 0,
+                                    pulse2['time'] if 'time' in pulse2 else 0,
+                                    pulse2['amplitude'] if 'amplitude' in pulse2 else 0])
             
             # 2. Save the period duration histogram
             period_hist_file = os.path.join(folder_path, f"{folder_name}_period_histogram.png")
@@ -3372,141 +3302,154 @@ class KatydidAnalysisApp(QMainWindow):
             
             # Load the next file
             self.load_wav_file(next_file)
-    
-    def update_selection_time(self):
-        """Update the time display for the current selection"""
-        if not hasattr(self, 'time_label'):
-            # Create time label if it doesn't exist
-            self.time_label = QLabel()
-            self.time_label.setStyleSheet("""
-                QLabel {
-                    background-color: rgba(0, 0, 0, 0.7);
-                    color: #00ff00;
-                    padding: 5px;
-                    border-radius: 3px;
-                }
-            """)
-            if hasattr(self, 'graph_container'):
-                self.graph_container.layout().addWidget(self.time_label)
 
-        if self.selection_start is not None and self.selection_end is not None:
-            start_time = min(self.selection_start, self.selection_end)
-            end_time = max(self.selection_start, self.selection_end)
-            duration = abs(end_time - start_time)
+        # 2. Save the period duration histogram
+        period_hist_file = os.path.join(folder_path, f"{folder_name}_period_histogram.png")
+        
+        # Create figure for period histogram
+        period_fig = Figure(figsize=(8, 6))
+        period_canvas = FigureCanvas(period_fig)
+        period_ax = period_fig.add_subplot(111)
+        
+        # Extract duration data
+        durations = [p['duration'] for p in self.current_periods]
+        
+        # Calculate mode of durations
+        if durations:
+            # Create bins for histogram
+            hist, bin_edges = np.histogram(durations, bins=30)
+            # Find the bin with the highest count
+            mode_bin_index = np.argmax(hist)
+            # Get the mode range
+            mode_range = (bin_edges[mode_bin_index], bin_edges[mode_bin_index + 1])
+            mode_value = (mode_range[0] + mode_range[1]) / 2
             
-            # Include amplitude range if available
-            if self.selection_ystart is not None and self.selection_yend is not None:
-                min_amp = min(self.selection_ystart, self.selection_yend)
-                max_amp = max(self.selection_ystart, self.selection_yend)
-                amp_range = max_amp - min_amp
-                self.time_label.setText(f"Selection: {start_time:.3f}ms - {end_time:.3f}ms (Duration: {duration:.3f}ms)\nAmplitude: {min_amp:.4f} - {max_amp:.4f} (Range: {amp_range:.4f})")
-            else:
-                self.time_label.setText(f"Selection: {start_time:.3f}ms - {end_time:.3f}ms (Duration: {duration:.3f}ms)")
+            # Plot histogram of durations
+            n, bins, patches = period_ax.hist(durations, bins=30, alpha=0.7, color='green')
+            
+            # Highlight the mode bin
+            for i, patch in enumerate(patches):
+                if i == mode_bin_index:
+                    patch.set_facecolor('red')  # Highlight the mode bin
+            
+            # Add a vertical line at the mode
+            period_ax.axvline(x=mode_value, color='red', linestyle='--', linewidth=2)
+            period_ax.text(mode_value, max(n)*0.9, f'Mode: {mode_value:.2f} ms', 
+                        color='red', fontweight='bold', ha='right')
         else:
-            self.time_label.setText("")
+            period_ax.text(0.5, 0.5, 'No data available', ha='center', va='center', transform=period_ax.transAxes)
+        
+        period_ax.set_xlabel('Period Duration (ms)')
+        period_ax.set_ylabel('Frequency')
+        period_ax.set_title('Distribution of Period Durations (Mode Highlighted)')
+        period_ax.grid(True)
+        period_ax.legend()
+        period_ax.legend(loc='upper right')  # Specify a fixed location for the legend
+        period_fig.tight_layout()
+        period_fig.savefig(period_hist_file)
+        
+        # 3. Save the ratio histogram
+        ratio_hist_file = os.path.join(folder_path, f"{folder_name}_ratio_histogram.png")
+        ratio_fig = Figure(figsize=(8, 6))
+        ratio_canvas = FigureCanvas(ratio_fig)
+        ratio_ax = ratio_fig.add_subplot(111)
+        
+        # Extract ratio data
+        ratios = [p['ratio'] for p in self.current_periods]
+        
+        # Calculate mode of ratios
+        if ratios:
+            # Create bins for histogram
+            hist, bin_edges = np.histogram(ratios, bins=30)
+            # Find the bin with the highest count
+            mode_bin_index = np.argmax(hist)
+            # Get the mode range
+            mode_range = (bin_edges[mode_bin_index], bin_edges[mode_bin_index + 1])
+            mode_value = (mode_range[0] + mode_range[1]) / 2
+            
+            # Plot histogram of ratios
+            n, bins, patches = ratio_ax.hist(ratios, bins=30, alpha=0.7, color='blue')
+            
+            # Highlight the mode bin
+            for i, patch in enumerate(patches):
+                if i == mode_bin_index:
+                    patch.set_facecolor('red')  # Highlight the mode bin
+            
+            # Add a vertical line at the mode
+            ratio_ax.axvline(x=mode_value, color='red', linestyle='--', linewidth=2)
+            ratio_ax.text(mode_value, max(n)*0.9, f'Mode: {mode_value:.4f}', 
+                       color='red', fontweight='bold', ha='right')
+        else:
+            ratio_ax.text(0.5, 0.5, 'No data available', ha='center', va='center', transform=ratio_ax.transAxes)
+        
+        ratio_ax.set_xlabel('Pulse Ratio (time between pulses 1-2 / period duration)')
+        ratio_ax.set_ylabel('Frequency')
+        ratio_ax.set_title('Distribution of Pulse Ratios (Mode Highlighted)')
+        ratio_ax.grid(True)
+        ratio_ax.legend()
+        ratio_ax.legend(loc='upper right')  # Specify a fixed location for the legend
+        ratio_fig.tight_layout()
+        ratio_fig.savefig(ratio_hist_file)
+        
+        # 4. Save statistics as text file
+        stats_file = os.path.join(folder_path, f"{folder_name}_statistics.txt")
+        with open(stats_file, 'w') as f:
+            f.write(f"File: {self.file_path if hasattr(self, 'file_path') else 'Unknown'}\n")
+            f.write(f"Analysis Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+            f.write(f"Number of Pulses: {len(self.pulses) if hasattr(self, 'pulses') else 0}\n")
+            f.write(f"Number of Periods: {len(self.current_periods)}\n\n")
+            
+            # Period statistics
+            f.write(f"Period Statistics (ms):\n")
+            f.write(f"  Mean: {np.mean(durations):.2f}\n")
+            f.write(f"  Median: {np.median(durations):.2f}\n")
+            f.write(f"  Mode: {mode_value if 'mode_value' in locals() else 0:.2f}\n")
+            f.write(f"  Std Dev: {np.std(durations):.2f}\n")
+            f.write(f"  Min: {np.min(durations):.2f}\n")
+            f.write(f"  Max: {np.max(durations):.2f}\n\n")
+            
+            # Ratio statistics
+            f.write(f"Pulse Ratio Statistics:\n")
+            f.write(f"  Mean: {np.mean(ratios):.4f}\n")
+            f.write(f"  Median: {np.median(ratios):.4f}\n")
+            f.write(f"  Mode: {mode_value if 'mode_value' in locals() else 0:.4f}\n")
+            f.write(f"  Std Dev: {np.std(ratios):.4f}\n")
+            f.write(f"  Min: {np.min(ratios):.4f}\n")
+            f.write(f"  Max: {np.max(ratios):.4f}\n\n")
+            
+            # Processing information
+            threshold_type = "Absolute" if hasattr(self, 'using_absolute_threshold') and self.using_absolute_threshold else "Relative"
+            threshold_value = self.abs_threshold if hasattr(self, 'abs_threshold') and hasattr(self, 'using_absolute_threshold') and self.using_absolute_threshold else self.rel_threshold if hasattr(self, 'rel_threshold') else 0
+            f.write(f"Processing Information:\n")
+            f.write(f"  Inversion Count: {self.inversion_count if hasattr(self, 'inversion_count') else 0}\n")
+            f.write(f"  Threshold Type: {threshold_type}\n")
+            f.write(f"  Threshold Value: {threshold_value:.3f}\n")
 
-    def add_command(self, command_type, data=None, description=""):
-        """Add a command to the history for undo/redo functionality"""
-        # Truncate the history if we're not at the end
-        if self.command_index < len(self.command_history) - 1:
-            self.command_history = self.command_history[:self.command_index + 1]
+        # Show success message and handle next file
+        try:
+            QMessageBox.information(self, "Save Successful", 
+                f"Results saved to folder:\n{folder_path}\n\nFiles created:\n"
+                f"- {os.path.basename(csv_file)}\n"
+                f"- {os.path.basename(period_hist_file)}\n"
+                f"- {os.path.basename(ratio_hist_file)}\n"
+                f"- {os.path.basename(stats_file)}")
             
-        # Add the new command
-        self.command_history.append({
-            'type': command_type,
-            'data': data,
-            'description': description
-        })
-        
-        # Move the index to the new command
-        self.command_index = len(self.command_history)
-        
-        # Trim history if it exceeds the maximum length
-        if len(self.command_history) > self.max_history:
-            self.command_history = self.command_history[-self.max_history:]
-            self.command_index = len(self.command_history) - 1
-    
-    def undo(self):
-        """Undo the last command"""
-        if self.command_index < 0:
-            # Nothing to undo
-            self.show_status_message("Nothing to undo")
-            return
-            
-        # Get the current command to undo
-        cmd = self.command_history[self.command_index]
-        
-        # Process the undo based on command type
-        if cmd['type'] == 'add_pulse':
-            # Undo pulse addition
-            pulses_data = cmd['data']
-            self.pulses = pulses_data['before'].copy()  # Create a copy to ensure it's a new list
-            
-        elif cmd['type'] == 'delete_pulse':
-            # Undo pulse deletion
-            pulses_data = cmd['data']
-            self.pulses = pulses_data['before'].copy()  # Create a copy to ensure it's a new list
-            
-        elif cmd['type'] == 'selection':
-            # Undo selection
-            selection_data = cmd['data']
-            self.selection_start = selection_data['start']
-            self.selection_end = selection_data['end']
-            self.selection_ystart = selection_data['ystart']
-            self.selection_yend = selection_data['yend']
-            
-        elif cmd['type'] == 'detect_pulses':
-            # Undo pulse detection
-            pulses_data = cmd['data']
-            self.pulses = pulses_data['previous_pulses'].copy()  # Create a copy to ensure it's a new list
-            
-        # Move back in the history
-        self.command_index -= 1
-        
-        # Update the UI
-        self.update_plot()
-        self.show_status_message(f"Undo: {cmd['description']}")
-        
-    def redo(self):
-        """Redo the previously undone command"""
-        if self.command_index >= len(self.command_history) - 1:
-            # Nothing to redo
-            self.show_status_message("Nothing to redo")
-            return
-            
-        # Move forward in the history
-        self.command_index += 1
-        
-        # Get the command to redo
-        cmd = self.command_history[self.command_index]
-        
-        # Process the redo based on command type
-        if cmd['type'] == 'add_pulse':
-            # Redo pulse addition
-            pulses_data = cmd['data']
-            self.pulses = pulses_data['after'].copy()  # Create a copy to ensure it's a new list
-            
-        elif cmd['type'] == 'delete_pulse':
-            # Redo pulse deletion
-            pulses_data = cmd['data']
-            self.pulses = pulses_data['after'].copy()  # Create a copy to ensure it's a new list
-            
-        elif cmd['type'] == 'selection':
-            # Redo selection
-            selection_data = cmd['data']
-            self.selection_start = selection_data['new_start']
-            self.selection_end = selection_data['new_end']
-            self.selection_ystart = selection_data['new_ystart']
-            self.selection_yend = selection_data['new_yend']
-            
-        elif cmd['type'] == 'detect_pulses':
-            # Redo pulse detection
-            pulses_data = cmd['data']
-            self.pulses = pulses_data['pulses'].copy()  # Create a copy to ensure it's a new list
-            
-        # Update the UI
-        self.update_plot()
-        self.show_status_message(f"Redo: {cmd['description']}")
+            # Check if there are more files in the queue
+            if hasattr(self, 'file_queue') and len(self.file_queue) > 1 and self.current_file_index < len(self.file_queue) - 1:
+                # Move to the next file
+                self.current_file_index += 1
+                next_file = self.file_queue[self.current_file_index]
+                
+                # Add information about next file
+                QMessageBox.information(self, "Next File", 
+                    f"Moving to next file ({self.current_file_index + 1}/{len(self.file_queue)}):\n{os.path.basename(next_file)}")
+                
+                # Load the next file
+                self.load_wav_file(next_file)
+        except Exception as e:
+            QMessageBox.critical(self, "Error Saving Results", 
+                f"Failed to save results: {str(e)}")
+
     
     def show_status_message(self, message, duration=1500):
         """Show a status message overlay on the plot"""
