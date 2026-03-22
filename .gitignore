@@ -1,0 +1,19 @@
+# Build outputs
+dist/
+build/
+release/
+*.spec.bak
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
