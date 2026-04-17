@@ -17,3 +17,5 @@ __pycache__/
 .vscode/
 *.swp
 *.swo
+.DS_Store
+Data Analyzer.py

@@ -364,6 +364,66 @@ class KatydidAnalyzer2(QMainWindow):
             QMessageBox.critical(self, "Error", f"Failed to load CSV file: {str(e)}")
             return False
     
+    def _csv_column_names(self):
+        """Map CSV headers from Wav Analyzer (= key vs Save Results) to logical columns."""
+        if self.csv_data is None or self.csv_data.empty:
+            return None, None, None, None, None
+        cols = list(self.csv_data.columns)
+
+        def lc(c):
+            return str(c).strip().lower()
+
+        period_col = next((c for c in cols if lc(c) == 'period'), None)
+        duration_col = next((c for c in cols if lc(c) in ('duration (ms)', 'duration', 'period duration')), None)
+        ratio_col = next((c for c in cols if lc(c) in ('pulse ratio', 'ratio')), None)
+
+        amplitude_col = None
+        for c in cols:
+            l = lc(c)
+            if 'pulse1' in l and 'amplitude' in l:
+                amplitude_col = c
+                break
+        if amplitude_col is None:
+            amplitude_col = next((c for c in cols if lc(c) == 'amplitude'), None)
+        if amplitude_col is None:
+            for c in cols:
+                l = lc(c)
+                if 'amplitude' in l and 'pulse2' not in l:
+                    amplitude_col = c
+                    break
+
+        time_col = None
+        for c in cols:
+            l = lc(c)
+            if 'pulse1' in l and 'time' in l:
+                time_col = c
+                break
+        if time_col is None:
+            time_col = next((c for c in cols if lc(c) in ('time (ms)', 'time')), None)
+        if time_col is None:
+            for c in cols:
+                l = lc(c)
+                if 'time' in l and 'pulse2' not in l:
+                    time_col = c
+                    break
+
+        return period_col, duration_col, ratio_col, amplitude_col, time_col
+
+    def _warn_ratio_range_for_ex_in(self, ratio_min, ratio_max):
+        """ex/in/z logic requires the band to cross 0.5 (short vs long pulse ratio)."""
+        if ratio_max < 0.5 or ratio_min > 0.5:
+            QMessageBox.warning(
+                self,
+                "Ratio range may mark everything as z",
+                "Your acceptable pulse ratio band does not cross 0.5.\n\n"
+                "The table uses ratio < 0.5 for the short pulse ('ex') and ratio ≥ 0.5 for the long pulse ('in'). "
+                "Each row must fall inside BOTH the period range and this ratio band.\n\n"
+                "If the band only covers one histogram peak (e.g. only the tall ~0.6 region), "
+                "short pulses never qualify, so 'in' rows also fail and almost everything becomes 'z'.\n\n"
+                "Fix: widen the green band so it includes both peaks—left edge below ~0.5 and right edge above ~0.5 "
+                "(press K and adjust min/max, or use the dialog to set left/right values)."
+            )
+
     def process_csv_data(self):
         """Process the CSV data to extract pulse information"""
         # Reset pulse data
@@ -373,12 +433,7 @@ class KatydidAnalyzer2(QMainWindow):
         if self.csv_data is None or self.csv_data.empty:
             return
         
-        # Find the column names that match our required columns (case insensitive)
-        period_col = next((col for col in self.csv_data.columns if col.lower() == 'period'), None)
-        duration_col = next((col for col in self.csv_data.columns if col.lower() == 'duration (ms)' or col.lower() == 'duration'), None)
-        ratio_col = next((col for col in self.csv_data.columns if col.lower() == 'pulse ratio'), None)
-        amplitude_col = next((col for col in self.csv_data.columns if col.lower() == 'amplitude'), None)
-        time_col = next((col for col in self.csv_data.columns if col.lower() == 'time (ms)' or col.lower() == 'time'), None)
+        period_col, duration_col, ratio_col, amplitude_col, time_col = self._csv_column_names()
         
         # Check if we have the required columns
         if not (duration_col and ratio_col):
@@ -594,14 +649,8 @@ class KatydidAnalyzer2(QMainWindow):
         # Populate table with data
         self.table.setRowCount(len(self.csv_data))
         
+        period_col, period_duration_col, ratio_col, amplitude_col, time_col = self._csv_column_names()
         for row, (_, csv_row) in enumerate(self.csv_data.iterrows()):
-            # Find the column names that match our required columns (case insensitive)
-            # For Pulse column, we'll just use the row number (1-based)
-            amplitude_col = next((col for col in self.csv_data.columns if col.lower() == 'amplitude'), None)
-            time_col = next((col for col in self.csv_data.columns if col.lower() == 'time (ms)' or col.lower() == 'time'), None)
-            period_duration_col = next((col for col in self.csv_data.columns if col.lower() == 'period duration' or col.lower() == 'duration (ms)' or col.lower() == 'duration'), None)
-            ratio_col = next((col for col in self.csv_data.columns if col.lower() == 'ratio' or col.lower() == 'pulse ratio'), None)
-            
             # Add pulse number (1-based) to first column
             pulse_item = QTableWidgetItem(f"{row+1}")
             self.table.setItem(row, 0, pulse_item)
@@ -1190,310 +1239,6 @@ class KatydidAnalyzer2(QMainWindow):
             # Update status
             self.status_label.setText(f"Period view range set to: {new_min:.1f} - {new_max:.1f} ms")
     
-        
-        
-        
-        
-        
-        
-        
-        
-            
-    def update_table_with_ranges(self):
-        # Check if we have both period and ratio ranges set
-        if not hasattr(self, 'period_range') or not hasattr(self, 'ratio_range'):
-            QMessageBox.warning(self, "Warning", "Both period and ratio ranges must be set first")
-            return
-        
-        period_min, period_max = self.period_range
-        ratio_min, ratio_max = self.ratio_range
-        
-        # Make sure we have a table to update
-        if not hasattr(self, 'table'):
-            return
-        
-        # Update the table with pulse information
-        for i, period in enumerate(self.periods):
-            if i < self.table.rowCount():
-                # Add pulse number
-                pulse_item = QTableWidgetItem(f"{i+1}")
-                self.table.setItem(i, 0, pulse_item)
-                
-                # Add amplitude if available
-                if 'amplitude' in period:
-                    amp_item = QTableWidgetItem(f"{period['amplitude']:.2f}")
-                    self.table.setItem(i, 1, amp_item)
-                
-                # Add time if available
-                if 'time' in period:
-                    time_item = QTableWidgetItem(f"{period['time']:.2f}")
-                    self.table.setItem(i, 2, time_item)
-                
-                # Calculate TimeB (time between pulses)
-                if i > 0 and 'time' in period and 'time' in self.periods[i-1]:
-                    time_prev = self.periods[i-1]['time']
-                    time_curr = period['time']
-                    time_between = time_curr - time_prev
-                    timeb_item = QTableWidgetItem(f"{time_between:.2f}")
-                    self.table.setItem(i, 3, timeb_item)
-                
-                # Add period duration if available
-                if 'duration' in period:
-                    duration_item = QTableWidgetItem(f"{period['duration']:.2f}")
-                    self.table.setItem(i, 4, duration_item)
-                
-                # Add ratio if available
-                if 'ratio' in period:
-                    ratio_item = QTableWidgetItem(f"{period['ratio']:.4f}")
-                    self.table.setItem(i, 5, ratio_item)
-                
-                # Check if within both ranges
-                duration_in_range = period_min <= period.get('duration', 0) <= period_max if 'duration' in period else False
-                ratio_in_range = ratio_min <= period.get('ratio', 0) <= ratio_max if 'ratio' in period else False
-                within_range = duration_in_range and ratio_in_range
-                
-                # Add ex & in indicator - now at column 6 with TimeB added
-                if within_range:
-                    if period.get('ratio', 0) < 0.5:
-                        # External pulse
-                        ex_in_item = QTableWidgetItem('ex')
-                        period['is_valid_short'] = True
-                    elif i > 0 and self.periods[i-1].get('is_valid_short', False):
-                        # Internal pulse
-                        ex_in_item = QTableWidgetItem('in')
-                    else:
-                        # Invalid pulse
-                        ex_in_item = QTableWidgetItem('z')
-                        period['is_valid_short'] = False
-                else:
-                    # Invalid pulse
-                    ex_in_item = QTableWidgetItem('z')
-                    period['is_valid_short'] = False
-                
-                self.table.setItem(i, 6, ex_in_item)  # Column 6 for ex & in with TimeB added
-                
-                # Clear sequencing column
-                self.table.setItem(i, 7, QTableWidgetItem(""))
-                
-                # Highlight row if outside range (light red background)
-                for col in range(self.table.columnCount()):
-                    item = self.table.item(i, col)
-                    if item:
-                        if not within_range:
-                            item.setBackground(QColor(255, 200, 200))  # Light red
-                        else:
-                            item.setBackground(QColor(255, 255, 255))  # White
-        
-        # Resize columns to content
-        self.table.resizeColumnsToContents()
-        
-        # Update status
-        self.status_label.setText(f"Table updated with ranges: Period {period_min:.2f}-{period_max:.2f} ms, Ratio {ratio_min:.3f}-{ratio_max:.3f}")
-    
-    def select_ratio_mode_range(self):
-        # Select mode peak and set range for ratio histogram
-        if hasattr(self, 'ratio_hist_data') and self.ratio_hist_data:
-            mode_value = self.ratio_hist_data['mode_value']
-            left_bar = self.ratio_hist_data['left_bar']
-            right_bar = self.ratio_hist_data['right_bar']
-            recommended_min = self.ratio_hist_data['recommended_min']
-            recommended_max = self.ratio_hist_data['recommended_max']
-            
-            # Create a simple dialog asking if the variation is OK
-            message = f"Mode peak detected at {mode_value:.3f}\n"
-            message += f"Closest bars at {left_bar:.3f} and {right_bar:.3f}\n"
-            message += f"Recommended range: {recommended_min:.3f} - {recommended_max:.3f}\n\n"
-            message += "Is this variation acceptable?"
-            
-            reply = QMessageBox.question(self, "Confirm Ratio Variation", message,
-                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
-            
-            if reply == QMessageBox.No:
-                # User wants to adjust the variation
-                dialog = QDialog(self)
-                dialog.setWindowTitle("Adjust Ratio Variation")
-                # Make dialog non-modal so user can interact with main window
-                dialog.setWindowModality(Qt.NonModal)
-                layout = QVBoxLayout(dialog)
-                
-                # Add explanation label
-                layout.addWidget(QLabel(f"Mode value: {mode_value:.3f}"))
-                layout.addWidget(QLabel("Set custom variation for left and right sides:"))
-                
-                # Add variation inputs for both left and right sides
-                variation_layout = QGridLayout()
-                
-                # Left variation
-                variation_layout.addWidget(QLabel("Left variation:"), 0, 0)
-                left_variation_input = QDoubleSpinBox()
-                left_variation_input.setRange(0.001, 0.5)
-                left_variation_input.setValue(mode_value - recommended_min)
-                left_variation_input.setDecimals(3)
-                left_variation_input.setSingleStep(0.005)
-                variation_layout.addWidget(left_variation_input, 0, 1)
-                
-                # Right variation
-                variation_layout.addWidget(QLabel("Right variation:"), 1, 0)
-                right_variation_input = QDoubleSpinBox()
-                right_variation_input.setRange(0.001, 0.5)
-                right_variation_input.setValue(recommended_max - mode_value)
-                right_variation_input.setDecimals(3)
-                right_variation_input.setSingleStep(0.005)
-                variation_layout.addWidget(right_variation_input, 1, 1)
-                
-                # Preview of resulting range
-                preview_label = QLabel(f"Resulting range: {max(0, mode_value - left_variation_input.value()):.3f} - {min(1, mode_value + right_variation_input.value()):.3f}")
-                
-                # Create a figure for real-time histogram preview
-                preview_figure = Figure(figsize=(6, 3), dpi=100)
-                preview_canvas = FigureCanvas(preview_figure)
-                preview_ax = preview_figure.add_subplot(111)
-                
-                # Function to update both the preview and the main histogram
-                def update_preview():
-                    # Get current variation values
-                    left_var = left_variation_input.value()
-                    right_var = right_variation_input.value()
-                    
-                    # Calculate range
-                    range_min = max(0, mode_value - left_var)
-                    range_max = min(1, mode_value + right_var)
-                    
-                    # Update text preview
-                    preview_label.setText(f"Resulting range: {range_min:.3f} - {range_max:.3f}")
-                    
-                    # Clear the preview axis
-                    preview_ax.clear()
-                    
-                    # Also update the main histogram in real-time
-                    # Store current axis limits before clearing
-                    current_xlim = self.ratio_ax.get_xlim() if hasattr(self.ratio_ax, 'get_xlim') else (0, 1)
-                    current_ylim = self.ratio_ax.get_ylim() if hasattr(self.ratio_ax, 'get_ylim') else None
-                    
-                    # Clear the main ratio histogram
-                    self.ratio_ax.clear()
-                    
-                    # Redraw the main histogram
-                    if hasattr(self, 'ratio_hist_data'):
-                        hist_data = self.ratio_hist_data
-                        bin_centers = hist_data['bin_centers']
-                        hist = hist_data['hist']
-                        bin_width = hist_data['bin_edges'][1] - hist_data['bin_edges'][0]
-                        
-                        # Plot both histograms (preview and main)
-                        # Preview histogram
-                        preview_ax.clear()
-                        preview_ax.bar(bin_centers, hist, width=bin_width, alpha=0.7, 
-                                      color='blue', edgecolor='black', linewidth=0.5)
-                        preview_ax.axvline(x=mode_value, color='red', linestyle='-', linewidth=2)
-                        preview_ax.axvline(x=range_min, color='blue', linestyle='--', linewidth=1.5)
-                        preview_ax.axvline(x=range_max, color='blue', linestyle='--', linewidth=1.5)
-                        preview_ax.axvspan(range_min, range_max, alpha=0.2, color='green')
-                        preview_ax.set_xlim(0, 1)
-                        preview_ax.set_xlabel('Ratio')
-                        preview_ax.set_ylabel('Frequency')
-                        
-                        # Main histogram
-                        self.ratio_ax.bar(bin_centers, hist, width=bin_width, alpha=0.7, 
-                                         color='blue', edgecolor='black', linewidth=0.5)
-                        
-                        # Mark the mode with a vertical line
-                        self.ratio_ax.axvline(x=mode_value, color='red', linestyle='-', linewidth=2, 
-                                             label=f'Mode: {mode_value:.3f}')
-                        
-                        # Show the current range being adjusted
-                        self.ratio_ax.axvline(x=range_min, color='blue', linestyle='--', linewidth=1.5, 
-                                             label=f'Min: {range_min:.3f}')
-                        self.ratio_ax.axvline(x=range_max, color='blue', linestyle='--', linewidth=1.5, 
-                                             label=f'Max: {range_max:.3f}')
-                        
-                        # Highlight the selected range
-                        self.ratio_ax.axvspan(range_min, range_max, alpha=0.2, color='green',
-                                            label=f'Range: {range_min:.3f}-{range_max:.3f}')
-                        
-                        # Set labels and title
-                        self.ratio_ax.set_xlabel('Pulse Ratio', fontsize=10, fontweight='bold')
-                        self.ratio_ax.set_ylabel('Frequency', fontsize=10, fontweight='bold')
-                        self.ratio_ax.set_title('Distribution of Pulse Ratios', fontsize=12, fontweight='bold')
-                        
-                        # Restore previous axis limits to maintain zoom level
-                        self.ratio_ax.set_xlim(current_xlim)
-                        if current_ylim is not None:
-                            self.ratio_ax.set_ylim(current_ylim)
-                        
-                        # Set grid
-                        self.ratio_ax.grid(True, linestyle='--', alpha=0.7)
-                        
-                        # Make tick labels more visible
-                        self.ratio_ax.tick_params(axis='both', which='major', labelsize=9)
-                        
-                        # Add a legend
-                        self.ratio_ax.legend(loc='upper right', fontsize=8)
-                        
-                        # Update both canvases
-                        preview_canvas.draw()
-                        self.ratio_canvas.draw()
-                
-                # Connect value changes to update preview
-                left_variation_input.valueChanged.connect(update_preview)
-                right_variation_input.valueChanged.connect(update_preview)
-                
-                # Initial update
-                update_preview()
-                
-                layout.addLayout(variation_layout)
-                layout.addWidget(preview_label)
-                
-                # Add buttons
-                buttons = QHBoxLayout()
-                ok_button = QPushButton("OK")
-                ok_button.clicked.connect(dialog.accept)
-                cancel_button = QPushButton("Cancel")
-                cancel_button.clicked.connect(dialog.reject)
-                buttons.addWidget(ok_button)
-                buttons.addWidget(cancel_button)
-                layout.addLayout(buttons)
-                
-                if dialog.exec_() == QDialog.Accepted:
-                    # Get the custom variation values
-                    left_variation = left_variation_input.value()
-                    right_variation = right_variation_input.value()
-                    range_min = max(0, mode_value - left_variation)
-                    range_max = min(1, mode_value + right_variation)
-                else:
-                    # User cancelled the custom variation dialog, use recommended values
-                    range_min = recommended_min
-                    range_max = recommended_max
-            else:
-                # User accepted the recommended variation
-                range_min = recommended_min
-                range_max = recommended_max
-            
-            # Store the ratio range
-            self.ratio_range = (range_min, range_max)
-            
-            # Clear previous range visualization if any
-            self.update_ratio_histogram()
-            
-            # Highlight the selected range on the histogram
-            self.ratio_ax.axvspan(range_min, range_max, alpha=0.3, color='green', 
-                                  label=f'Selected: {range_min:.3f}-{range_max:.3f}')
-            
-            # Update the canvas
-            self.ratio_canvas.draw()
-            
-            # Update status
-            self.status_label.setText(f"Selected ratio range: {range_min:.3f} - {range_max:.3f}")
-            
-            # Update the table with pulse start/end times and range indicators
-            self.update_table_with_ranges()
-            
-            # Switch to the CSV table tab
-            self.tabs.setCurrentIndex(1)  # Assuming CSV table is tab index 1
-        else:
-            # User cancelled
-            self.status_label.setText("Ratio mode selection cancelled")
-
     def update_table_with_ranges(self):
         # Update the table with pulse pattern classification
         if not hasattr(self, 'period_range') or not hasattr(self, 'ratio_range'):
@@ -1687,6 +1432,13 @@ class KatydidAnalyzer2(QMainWindow):
         nav_label.setFont(QFont("Arial", 9))
         nav_label.setStyleSheet("color: #1a1a1a;")
         layout.addWidget(nav_label)
+        ratio_hint = QLabel(
+            "Tip: After K, your green ratio band must cross 0.5 (include both short and long peaks) or the table marks most rows as z."
+        )
+        ratio_hint.setWordWrap(True)
+        ratio_hint.setFont(QFont("Arial", 9))
+        ratio_hint.setStyleSheet("color: #1a1a1a; background-color: #fff3cd; padding: 6px; border-radius: 4px;")
+        layout.addWidget(ratio_hint)
         
         # Add info label for clicked bars
         self.ratio_info_label = QLabel("Click on a bar to see details")
@@ -1966,6 +1718,7 @@ class KatydidAnalyzer2(QMainWindow):
             
             # Store the ratio range
             self.ratio_range = (range_min, range_max)
+            self._warn_ratio_range_for_ex_in(range_min, range_max)
             
             # Clear previous range visualization if any
             self.update_ratio_histogram()
@@ -3034,6 +2787,22 @@ class KatydidAnalyzer2(QMainWindow):
         <ul>
             <li><b>K:</b> Select mode peak and set range</li>
             <li><b>L:</b> Manually set x-axis range</li>
+        </ul>
+        
+        <h3>Ratio histogram — important</h3>
+        <p><b>One</b> acceptable ratio band is used for the whole table. It must <b>cross 0.5</b> on the x-axis so it includes 
+        both the short-ratio peak and the long-ratio peak (e.g. ~0.35–0.70). Pulse ratio &lt; 0.5 is classified as short 
+        (&quot;ex&quot;); ≥ 0.5 as long (&quot;in&quot;). If you only bracket the tall peak on one side (e.g. 0.55–0.65), 
+        short pulses never pass the filter and almost every row becomes &quot;z&quot;.</p>
+        <p>Setting one side does <b>not</b> auto-set the other; widen min/max in the K dialog until the green band spans both peaks.</p>
+        
+        <h3>Columns</h3>
+        <ul>
+            <li><b>Amplitude, Time, TimeB:</b> Filled when the CSV has &quot;Time (ms)&quot;/&quot;Amplitude&quot; (from Save with =) 
+            or &quot;Pulse1 Time (ms)&quot;/&quot;Pulse1 Amplitude&quot; (from Save Results in the analysis window).</li>
+            <li><b>ex &amp; in:</b> ex = valid short pulse, in = valid long pulse after a valid short, z = outside rules.</li>
+            <li><b>Sequencing:</b> B = start of a valid ex…in run; | = continuation; Eex/Ein = end marker for that sequence.</li>
+            <li><b>Copy:</b> Used with C key for waveform export segments.</li>
         </ul>
         
         <h3>General:</h3>
